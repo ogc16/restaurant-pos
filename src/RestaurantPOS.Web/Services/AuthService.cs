@@ -41,7 +41,6 @@ public class AuthService
             _http.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", Token);
 
-            OnAuthStateChanged?.Invoke();
             return true;
         }
         catch (Exception ex)
