@@ -3,7 +3,7 @@
 @inject AuthService Auth
 @inject NavigationManager Nav
 
-@if (!Auth.IsLoggedIn)
+@if (!_isLoggedIn)
 {
     <Login OnLoginSuccess="HandleLoginSuccess" />
 }
@@ -62,13 +62,23 @@ else
 }
 
 @code {
+    private bool _isLoggedIn;
+
     protected override void OnInitialized()
     {
-        Auth.OnAuthStateChanged += StateHasChanged;
+        _isLoggedIn = Auth.IsLoggedIn;
+        Auth.OnAuthStateChanged += HandleAuthStateChanged;
+    }
+
+    private void HandleAuthStateChanged()
+    {
+        _isLoggedIn = Auth.IsLoggedIn;
+        InvokeAsync(StateHasChanged);
     }
 
     private void HandleLoginSuccess()
     {
+        _isLoggedIn = Auth.IsLoggedIn;
         StateHasChanged();
     }
 
