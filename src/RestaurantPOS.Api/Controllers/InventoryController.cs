@@ -26,7 +26,7 @@ public class InventoryController : ControllerBase
         return result.IsSuccess ? Ok(result.Data) : NotFound(result.Error);
     }
 
-    [Authorize(Roles = "Admin")]
+    [Authorize]
     [HttpGet("low-stock")]
     public async Task<ActionResult<List<InventoryItemResponse>>> GetLowStock() =>
         Ok((await _service.GetLowStockAsync()).Data);

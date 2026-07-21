@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using RestaurantPOS.Core.Entities;
 using RestaurantPOS.Core.Enums;
+using RestaurantPOS.Core.Common;
 using RestaurantPOS.Core.Interfaces;
 using RestaurantPOS.Infrastructure.Data;
 
@@ -71,4 +72,20 @@ public class OrderRepository : IOrderRepository
             .Where(o => o.WaiterId == waiterId)
             .AsNoTracking()
             .ToListAsync();
+
+    public async Task<PaginatedResponse<Order>> GetAllPaginatedAsync(PaginatedRequest request)
+    {
+        var query = _context.Orders
+            .Include(o => o.Table)
+            .Include(o => o.Items).ThenInclude(i => i.MenuItem)
+            .AsNoTracking();
+        var totalCount = await query.CountAsync();
+        var items = await query.OrderByDescending(o => o.CreatedAt).Skip(request.Skip).Take(request.PageSize).ToListAsync();
+        return new PaginatedResponse<Order> { Items = items, TotalCount = totalCount, Page = request.Page, PageSize = request.PageSize };
+    }
+
+    public async Task<int> GetCountAsync()
+    {
+        return await _context.Set<Order>().CountAsync();
+    }
 }

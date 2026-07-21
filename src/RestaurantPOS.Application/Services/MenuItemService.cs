@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using RestaurantPOS.Application.Interfaces;
 using RestaurantPOS.Core.Common;
 using RestaurantPOS.Core.DTOs;
@@ -10,8 +11,13 @@ namespace RestaurantPOS.Application.Services;
 public class MenuItemService : IMenuItemService
 {
     private readonly IMenuItemRepository _repository;
+    private readonly ILogger<MenuItemService> _logger;
 
-    public MenuItemService(IMenuItemRepository repository) => _repository = repository;
+    public MenuItemService(IMenuItemRepository repository, ILogger<MenuItemService> logger)
+    {
+        _repository = repository;
+        _logger = logger;
+    }
 
     public async Task<Result<List<MenuItemResponse>>> GetAllAsync()
     {
@@ -40,6 +46,7 @@ public class MenuItemService : IMenuItemService
 
     public async Task<Result<MenuItemResponse>> CreateAsync(CreateMenuItemRequest request)
     {
+        _logger.LogInformation("Creating MenuItem: {Name}", request.Name);
         var item = new MenuItem
         {
             Name = request.Name,
@@ -57,6 +64,7 @@ public class MenuItemService : IMenuItemService
 
     public async Task<Result<MenuItemResponse>> UpdateAsync(int id, UpdateMenuItemRequest request)
     {
+        _logger.LogInformation("Updating MenuItem {Id}", id);
         var item = await _repository.GetByIdAsync(id);
         if (item == null) return Result<MenuItemResponse>.Failure("Menu item not found");
 
@@ -75,6 +83,7 @@ public class MenuItemService : IMenuItemService
 
     public async Task<Result<bool>> DeleteAsync(int id)
     {
+        _logger.LogInformation("Deleting MenuItem {Id}", id);
         var item = await _repository.GetByIdAsync(id);
         if (item == null) return Result<bool>.Failure("Menu item not found");
         await _repository.DeleteAsync(id);
@@ -88,6 +97,18 @@ public class MenuItemService : IMenuItemService
         item.IsAvailable = !item.IsAvailable;
         await _repository.UpdateAsync(item);
         return Result<bool>.Success(true);
+    }
+
+    public async Task<Result<PaginatedResponse<MenuItemResponse>>> GetAllPaginatedAsync(PaginatedRequest request)
+    {
+        var result = await _repository.GetAllPaginatedAsync(request);
+        return Result<PaginatedResponse<MenuItemResponse>>.Success(new PaginatedResponse<MenuItemResponse>
+        {
+            Items = result.Items.Select(MapToResponse).ToList(),
+            TotalCount = result.TotalCount,
+            Page = result.Page,
+            PageSize = result.PageSize
+        });
     }
 
     private static MenuItemResponse MapToResponse(MenuItem item) =>

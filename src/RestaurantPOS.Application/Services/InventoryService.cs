@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using RestaurantPOS.Application.Interfaces;
 using RestaurantPOS.Core.Common;
 using RestaurantPOS.Core.DTOs;
@@ -9,8 +10,13 @@ namespace RestaurantPOS.Application.Services;
 public class InventoryService : IInventoryService
 {
     private readonly IInventoryRepository _repository;
+    private readonly ILogger<InventoryService> _logger;
 
-    public InventoryService(IInventoryRepository repository) => _repository = repository;
+    public InventoryService(IInventoryRepository repository, ILogger<InventoryService> logger)
+    {
+        _repository = repository;
+        _logger = logger;
+    }
 
     public async Task<Result<List<InventoryItemResponse>>> GetAllAsync()
     {
@@ -39,6 +45,7 @@ public class InventoryService : IInventoryService
 
     public async Task<Result<InventoryItemResponse>> CreateAsync(CreateInventoryItemRequest request)
     {
+        _logger.LogInformation("Creating InventoryItem: {Name}", request.Name);
         var item = new InventoryItem
         {
             Name = request.Name,
@@ -56,6 +63,7 @@ public class InventoryService : IInventoryService
 
     public async Task<Result<InventoryItemResponse>> UpdateAsync(int id, UpdateInventoryItemRequest request)
     {
+        _logger.LogInformation("Updating InventoryItem {Id}", id);
         var item = await _repository.GetByIdAsync(id);
         if (item == null) return Result<InventoryItemResponse>.Failure("Inventory item not found");
 
@@ -74,6 +82,7 @@ public class InventoryService : IInventoryService
 
     public async Task<Result<bool>> DeleteAsync(int id)
     {
+        _logger.LogInformation("Deleting InventoryItem {Id}", id);
         var item = await _repository.GetByIdAsync(id);
         if (item == null) return Result<bool>.Failure("Inventory item not found");
         await _repository.DeleteAsync(id);
@@ -101,6 +110,18 @@ public class InventoryService : IInventoryService
         await _repository.LogRestockAsync(log);
 
         return Result<bool>.Success(true);
+    }
+
+    public async Task<Result<PaginatedResponse<InventoryItemResponse>>> GetAllPaginatedAsync(PaginatedRequest request)
+    {
+        var result = await _repository.GetAllPaginatedAsync(request);
+        return Result<PaginatedResponse<InventoryItemResponse>>.Success(new PaginatedResponse<InventoryItemResponse>
+        {
+            Items = result.Items.Select(MapToResponse).ToList(),
+            TotalCount = result.TotalCount,
+            Page = result.Page,
+            PageSize = result.PageSize
+        });
     }
 
     private static InventoryItemResponse MapToResponse(InventoryItem i) =>

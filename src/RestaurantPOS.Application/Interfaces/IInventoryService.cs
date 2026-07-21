@@ -13,4 +13,5 @@ public interface IInventoryService
     Task<Result<InventoryItemResponse>> UpdateAsync(int id, UpdateInventoryItemRequest request);
     Task<Result<bool>> DeleteAsync(int id);
     Task<Result<bool>> RestockAsync(RestockRequest request);
+    Task<Result<PaginatedResponse<InventoryItemResponse>>> GetAllPaginatedAsync(PaginatedRequest request);
 }

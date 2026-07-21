@@ -125,4 +125,20 @@ public class ApiService
             return false;
         }
     }
+
+    public async Task<byte[]?> GetBytesAsync(string endpoint)
+    {
+        EnsureAuth();
+        try
+        {
+            var response = await _http.GetAsync(endpoint);
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadAsByteArrayAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "GET bytes {Endpoint} failed", endpoint);
+            return null;
+        }
+    }
 }

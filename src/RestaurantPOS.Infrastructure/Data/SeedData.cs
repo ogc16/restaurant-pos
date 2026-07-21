@@ -67,6 +67,32 @@ public static class SeedData
             new InventoryItem { Id = 9, Name = "Mozzarella", Quantity = 25, Unit = "kg", LowStockThreshold = 5, CostPerUnit = 6.00m, SupplierName = "Dairy Best" },
             new InventoryItem { Id = 10, Name = "Eggs", Quantity = 200, Unit = "pieces", LowStockThreshold = 30, CostPerUnit = 0.30m, SupplierName = "Fresh Farms" }
         );
+
+        builder.Entity<MenuItemInventory>().HasData(
+            new MenuItemInventory { MenuItemId = 1, InventoryItemId = 6, QuantityRequired = 0.5m },
+            new MenuItemInventory { MenuItemId = 1, InventoryItemId = 8, QuantityRequired = 0.2m },
+            new MenuItemInventory { MenuItemId = 1, InventoryItemId = 9, QuantityRequired = 0.1m },
+            new MenuItemInventory { MenuItemId = 2, InventoryItemId = 8, QuantityRequired = 0.1m },
+            new MenuItemInventory { MenuItemId = 2, InventoryItemId = 9, QuantityRequired = 0.05m },
+            new MenuItemInventory { MenuItemId = 3, InventoryItemId = 8, QuantityRequired = 0.15m },
+            new MenuItemInventory { MenuItemId = 3, InventoryItemId = 10, QuantityRequired = 0.5m },
+            new MenuItemInventory { MenuItemId = 4, InventoryItemId = 8, QuantityRequired = 0.3m },
+            new MenuItemInventory { MenuItemId = 5, InventoryItemId = 1, QuantityRequired = 1m },
+            new MenuItemInventory { MenuItemId = 5, InventoryItemId = 7, QuantityRequired = 0.05m },
+            new MenuItemInventory { MenuItemId = 6, InventoryItemId = 2, QuantityRequired = 1m },
+            new MenuItemInventory { MenuItemId = 6, InventoryItemId = 7, QuantityRequired = 0.05m },
+            new MenuItemInventory { MenuItemId = 7, InventoryItemId = 3, QuantityRequired = 1m },
+            new MenuItemInventory { MenuItemId = 7, InventoryItemId = 9, QuantityRequired = 0.15m },
+            new MenuItemInventory { MenuItemId = 7, InventoryItemId = 8, QuantityRequired = 0.1m },
+            new MenuItemInventory { MenuItemId = 8, InventoryItemId = 4, QuantityRequired = 0.3m },
+            new MenuItemInventory { MenuItemId = 8, InventoryItemId = 5, QuantityRequired = 0.1m },
+            new MenuItemInventory { MenuItemId = 8, InventoryItemId = 7, QuantityRequired = 0.03m },
+            new MenuItemInventory { MenuItemId = 9, InventoryItemId = 3, QuantityRequired = 0.5m },
+            new MenuItemInventory { MenuItemId = 9, InventoryItemId = 10, QuantityRequired = 0.2m },
+            new MenuItemInventory { MenuItemId = 10, InventoryItemId = 10, QuantityRequired = 0.5m },
+            new MenuItemInventory { MenuItemId = 11, InventoryItemId = 10, QuantityRequired = 1m },
+            new MenuItemInventory { MenuItemId = 12, InventoryItemId = 10, QuantityRequired = 0.5m }
+        );
     }
 
     public static async Task SeedRolesAndAdminAsync(IServiceProvider serviceProvider)

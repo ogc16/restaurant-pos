@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using RestaurantPOS.Core.Entities;
+using RestaurantPOS.Core.Common;
 using RestaurantPOS.Core.Interfaces;
 using RestaurantPOS.Infrastructure.Data;
 
@@ -39,5 +40,18 @@ public class PaymentRepository : IPaymentRepository
         payment.UpdatedAt = DateTime.UtcNow;
         _context.Payments.Update(payment);
         await _context.SaveChangesAsync();
+    }
+
+    public async Task<PaginatedResponse<Payment>> GetAllPaginatedAsync(PaginatedRequest request)
+    {
+        var query = _context.Payments.Include(p => p.Order).AsNoTracking();
+        var totalCount = await query.CountAsync();
+        var items = await query.OrderByDescending(p => p.CreatedAt).Skip(request.Skip).Take(request.PageSize).ToListAsync();
+        return new PaginatedResponse<Payment> { Items = items, TotalCount = totalCount, Page = request.Page, PageSize = request.PageSize };
+    }
+
+    public async Task<int> GetCountAsync()
+    {
+        return await _context.Set<Payment>().CountAsync();
     }
 }

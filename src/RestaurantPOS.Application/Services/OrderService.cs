@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using RestaurantPOS.Application.Interfaces;
 using RestaurantPOS.Core.Common;
 using RestaurantPOS.Core.DTOs;
@@ -13,17 +14,26 @@ public class OrderService : IOrderService
     private readonly IMenuItemRepository _menuRepo;
     private readonly ITableRepository _tableRepo;
     private readonly IInventoryRepository _inventoryRepo;
+    private readonly IPromotionRepository _promoRepo;
+    private readonly IPaymentRepository _paymentRepo;
+    private readonly ILogger<OrderService> _logger;
 
     public OrderService(
         IOrderRepository orderRepo,
         IMenuItemRepository menuRepo,
         ITableRepository tableRepo,
-        IInventoryRepository inventoryRepo)
+        IInventoryRepository inventoryRepo,
+        IPromotionRepository promoRepo,
+        IPaymentRepository paymentRepo,
+        ILogger<OrderService> logger)
     {
         _orderRepo = orderRepo;
         _menuRepo = menuRepo;
         _tableRepo = tableRepo;
         _inventoryRepo = inventoryRepo;
+        _promoRepo = promoRepo;
+        _paymentRepo = paymentRepo;
+        _logger = logger;
     }
 
     public async Task<Result<List<OrderResponse>>> GetAllAsync()
@@ -53,6 +63,7 @@ public class OrderService : IOrderService
 
     public async Task<Result<OrderResponse>> CreateAsync(CreateOrderRequest request)
     {
+        _logger.LogInformation("Creating Order for table {TableId}", request.TableId);
         var table = await _tableRepo.GetByIdAsync(request.TableId);
         if (table == null) return Result<OrderResponse>.Failure("Table not found");
 
@@ -87,7 +98,7 @@ public class OrderService : IOrderService
             order.Items.Add(orderItem);
             subTotal += orderItem.TotalPrice;
 
-            DeductInventory(menuItem, itemReq.Quantity);
+            await DeductInventory(menuItem, itemReq.Quantity);
         }
 
         order.SubTotal = subTotal;
@@ -103,6 +114,7 @@ public class OrderService : IOrderService
 
     public async Task<Result<OrderResponse>> UpdateStatusAsync(int id, UpdateOrderRequest request)
     {
+        _logger.LogInformation("Updating Order {Id} status to {Status}", id, request.Status);
         var order = await _orderRepo.GetByIdAsync(id);
         if (order == null) return Result<OrderResponse>.Failure("Order not found");
 
@@ -194,7 +206,70 @@ public class OrderService : IOrderService
         return Result<bool>.Success(true);
     }
 
-    private void DeductInventory(MenuItem menuItem, int quantity)
+    public async Task<Result<OrderResponse>> ApplyPromotionAsync(int orderId, ApplyPromotionRequest request)
+    {
+        var order = await _orderRepo.GetByIdAsync(orderId);
+        if (order == null) return Result<OrderResponse>.Failure("Order not found");
+
+        if (order.DiscountAmount > 0)
+            return Result<OrderResponse>.Failure("A promotion is already applied to this order");
+
+        var promo = await _promoRepo.GetByCodeAsync(request.PromotionCode);
+        if (promo == null) return Result<OrderResponse>.Failure("Promotion not found");
+        if (!promo.IsActive) return Result<OrderResponse>.Failure("Promotion is expired or not yet active");
+        if (promo.MaxUses.HasValue && promo.CurrentUses >= promo.MaxUses.Value)
+            return Result<OrderResponse>.Failure("Promotion usage limit reached");
+
+        decimal discount = promo.IsPercentBased
+            ? Math.Round(order.SubTotal * (promo.DiscountPercent / 100m), 2)
+            : promo.DiscountAmount;
+
+        if (discount > order.SubTotal)
+            discount = order.SubTotal;
+
+        order.DiscountAmount = discount;
+        promo.CurrentUses++;
+        await _promoRepo.UpdateAsync(promo);
+        await _orderRepo.UpdateAsync(order);
+
+        return Result<OrderResponse>.Success(MapToResponse(order));
+    }
+
+    public async Task<Result<ReceiptResponse>> GetReceiptAsync(int orderId)
+    {
+        var order = await _orderRepo.GetByIdAsync(orderId);
+        if (order == null) return Result<ReceiptResponse>.Failure("Order not found");
+
+        var payment = await _paymentRepo.GetByOrderIdAsync(orderId);
+
+        var receiptItems = order.Items.Where(i => !i.IsVoided).Select(i => new ReceiptItemResponse(
+            i.MenuItem?.Name ?? "",
+            i.Quantity,
+            i.UnitPrice,
+            i.TotalPrice,
+            i.SpecialInstructions
+        )).ToList();
+
+        var receipt = new ReceiptResponse(
+            OrderId: order.Id,
+            TableNumber: order.Table?.TableNumber ?? "",
+            WaiterName: order.WaiterName,
+            Items: receiptItems,
+            SubTotal: order.SubTotal,
+            TaxAmount: order.TaxAmount,
+            DiscountAmount: order.DiscountAmount,
+            TipAmount: order.TipAmount,
+            TotalAmount: order.TotalAmount,
+            PaymentMethod: payment?.Method.ToString() ?? "Unpaid",
+            PaymentStatus: payment?.Status.ToString() ?? "Pending",
+            CreatedAt: order.CreatedAt,
+            PaidAt: payment?.PaidAt
+        );
+
+        return Result<ReceiptResponse>.Success(receipt);
+    }
+
+    private async Task DeductInventory(MenuItem menuItem, int quantity)
     {
         foreach (var link in menuItem.MenuItemInventories)
         {
@@ -202,8 +277,20 @@ public class OrderService : IOrderService
             if (inventoryItem == null) continue;
             var deduction = (int)(link.QuantityRequired * quantity);
             inventoryItem.Quantity = Math.Max(0, inventoryItem.Quantity - deduction);
-            _inventoryRepo.UpdateAsync(inventoryItem);
+            await _inventoryRepo.UpdateAsync(inventoryItem);
         }
+    }
+
+    public async Task<Result<PaginatedResponse<OrderResponse>>> GetAllPaginatedAsync(PaginatedRequest request)
+    {
+        var result = await _orderRepo.GetAllPaginatedAsync(request);
+        return Result<PaginatedResponse<OrderResponse>>.Success(new PaginatedResponse<OrderResponse>
+        {
+            Items = result.Items.Select(MapToResponse).ToList(),
+            TotalCount = result.TotalCount,
+            Page = result.Page,
+            PageSize = result.PageSize
+        });
     }
 
     private static OrderResponse MapToResponse(Order order) =>

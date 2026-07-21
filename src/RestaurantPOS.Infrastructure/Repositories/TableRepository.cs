@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using RestaurantPOS.Core.Entities;
 using RestaurantPOS.Core.Enums;
+using RestaurantPOS.Core.Common;
 using RestaurantPOS.Core.Interfaces;
 using RestaurantPOS.Infrastructure.Data;
 
@@ -44,5 +45,18 @@ public class TableRepository : ITableRepository
             table.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
         }
+    }
+
+    public async Task<PaginatedResponse<Table>> GetAllPaginatedAsync(PaginatedRequest request)
+    {
+        var query = _context.Set<Table>().AsNoTracking();
+        var totalCount = await query.CountAsync();
+        var items = await query.OrderByDescending(t => t.Id).Skip(request.Skip).Take(request.PageSize).ToListAsync();
+        return new PaginatedResponse<Table> { Items = items, TotalCount = totalCount, Page = request.Page, PageSize = request.PageSize };
+    }
+
+    public async Task<int> GetCountAsync()
+    {
+        return await _context.Set<Table>().CountAsync();
     }
 }

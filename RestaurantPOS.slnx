@@ -6,4 +6,8 @@
     <Project Path="src/RestaurantPOS.Infrastructure/RestaurantPOS.Infrastructure.csproj" />
     <Project Path="src/RestaurantPOS.Web/RestaurantPOS.Web.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RestaurantPOS.Application.Tests/RestaurantPOS.Application.Tests.csproj" />
+    <Project Path="tests/RestaurantPOS.Api.Tests/RestaurantPOS.Api.Tests.csproj" />
+  </Folder>
 </Solution>

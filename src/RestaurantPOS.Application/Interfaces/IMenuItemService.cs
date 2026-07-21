@@ -13,4 +13,5 @@ public interface IMenuItemService
     Task<Result<MenuItemResponse>> UpdateAsync(int id, UpdateMenuItemRequest request);
     Task<Result<bool>> DeleteAsync(int id);
     Task<Result<bool>> ToggleAvailabilityAsync(int id);
+    Task<Result<PaginatedResponse<MenuItemResponse>>> GetAllPaginatedAsync(PaginatedRequest request);
 }

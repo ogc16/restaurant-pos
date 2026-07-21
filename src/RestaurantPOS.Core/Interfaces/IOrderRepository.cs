@@ -1,3 +1,4 @@
+using RestaurantPOS.Core.Common;
 using RestaurantPOS.Core.Entities;
 using RestaurantPOS.Core.Enums;
 
@@ -6,6 +7,7 @@ namespace RestaurantPOS.Core.Interfaces;
 public interface IOrderRepository
 {
     Task<List<Order>> GetAllAsync();
+    Task<PaginatedResponse<Order>> GetAllPaginatedAsync(PaginatedRequest request);
     Task<Order?> GetByIdAsync(int id);
     Task<List<Order>> GetByTableAsync(int tableId);
     Task<List<Order>> GetByStatusAsync(OrderStatus status);
@@ -13,4 +15,5 @@ public interface IOrderRepository
     Task<Order> CreateAsync(Order order);
     Task UpdateAsync(Order order);
     Task<List<Order>> GetOrdersByWaiterAsync(string waiterId);
+    Task<int> GetCountAsync();
 }

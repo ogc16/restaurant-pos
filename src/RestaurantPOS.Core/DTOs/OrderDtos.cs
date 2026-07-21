@@ -70,9 +70,37 @@ public record DailySalesReport(
     List<TopSellingItem> TopSellingItems
 );
 
+public record ApplyPromotionRequest(
+    string PromotionCode
+);
+
 public record TopSellingItem(
     int MenuItemId,
     string Name,
     int QuantitySold,
     decimal Revenue
+);
+
+public record ReceiptItemResponse(
+    string MenuItemName,
+    int Quantity,
+    decimal UnitPrice,
+    decimal TotalPrice,
+    string? SpecialInstructions
+);
+
+public record ReceiptResponse(
+    int OrderId,
+    string TableNumber,
+    string? WaiterName,
+    List<ReceiptItemResponse> Items,
+    decimal SubTotal,
+    decimal TaxAmount,
+    decimal DiscountAmount,
+    decimal TipAmount,
+    decimal TotalAmount,
+    string PaymentMethod,
+    string PaymentStatus,
+    DateTime CreatedAt,
+    DateTime? PaidAt
 );

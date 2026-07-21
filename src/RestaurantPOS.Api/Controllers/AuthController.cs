@@ -47,4 +47,28 @@ public class AuthController : ControllerBase
         var result = await _identityService.GetAllUsersAsync();
         return Ok(result.Data);
     }
+
+    [Authorize(Roles = "Admin")]
+    [HttpPut("users/{id}/role")]
+    public async Task<IActionResult> UpdateUserRole(int id, [FromQuery] string role)
+    {
+        var result = await _identityService.UpdateUserRoleAsync(id, role);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(result.Error);
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpPut("users/{id}/deactivate")]
+    public async Task<IActionResult> DeactivateUser(int id)
+    {
+        var result = await _identityService.DeactivateUserAsync(id);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(result.Error);
+    }
+
+    [Authorize]
+    [HttpPut("users/{id}/password")]
+    public async Task<IActionResult> ChangePassword(int id, [FromBody] ChangePasswordRequest request)
+    {
+        var result = await _identityService.ChangePasswordAsync(id, request.CurrentPassword, request.NewPassword);
+        return result.IsSuccess ? Ok() : BadRequest(result.Error);
+    }
 }

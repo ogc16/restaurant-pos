@@ -86,6 +86,43 @@ public class IdentityService
         );
     }
 
+    public async Task<Result<UserResponse>> UpdateUserRoleAsync(int userId, string newRole)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user == null) return Result<UserResponse>.Failure("User not found");
+
+        var currentRoles = await _userManager.GetRolesAsync(user);
+        await _userManager.RemoveFromRolesAsync(user, currentRoles);
+        await _userManager.AddToRoleAsync(user, newRole);
+        user.Role = newRole;
+        await _userManager.UpdateAsync(user);
+
+        return Result<UserResponse>.Success(new UserResponse(user.Id, user.Email!, user.FullName, user.Role, user.IsActive));
+    }
+
+    public async Task<Result<UserResponse>> DeactivateUserAsync(int userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user == null) return Result<UserResponse>.Failure("User not found");
+
+        user.IsActive = false;
+        await _userManager.UpdateAsync(user);
+
+        return Result<UserResponse>.Success(new UserResponse(user.Id, user.Email!, user.FullName, user.Role, user.IsActive));
+    }
+
+    public async Task<Result<bool>> ChangePasswordAsync(int userId, string currentPassword, string newPassword)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user == null) return Result<bool>.Failure("User not found");
+
+        var result = await _userManager.ChangePasswordAsync(user, currentPassword, newPassword);
+        if (!result.Succeeded)
+            return Result<bool>.Failure(result.Errors.Select(e => e.Description).ToList());
+
+        return Result<bool>.Success(true);
+    }
+
     private string GenerateJwtToken(AppUser user)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(

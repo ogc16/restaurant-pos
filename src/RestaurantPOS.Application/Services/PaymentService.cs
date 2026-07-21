@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using RestaurantPOS.Application.Interfaces;
 using RestaurantPOS.Core.Common;
 using RestaurantPOS.Core.DTOs;
@@ -12,16 +13,19 @@ public class PaymentService : IPaymentService
     private readonly IPaymentRepository _paymentRepo;
     private readonly IOrderRepository _orderRepo;
     private readonly ICustomerRepository _customerRepo;
+    private readonly ILogger<PaymentService> _logger;
 
-    public PaymentService(IPaymentRepository paymentRepo, IOrderRepository orderRepo, ICustomerRepository customerRepo)
+    public PaymentService(IPaymentRepository paymentRepo, IOrderRepository orderRepo, ICustomerRepository customerRepo, ILogger<PaymentService> logger)
     {
         _paymentRepo = paymentRepo;
         _orderRepo = orderRepo;
         _customerRepo = customerRepo;
+        _logger = logger;
     }
 
     public async Task<Result<PaymentResponse>> ProcessPaymentAsync(ProcessPaymentRequest request)
     {
+        _logger.LogInformation("Processing payment for Order {OrderId}, amount {Amount}", request.OrderId, request.Amount);
         var order = await _orderRepo.GetByIdAsync(request.OrderId);
         if (order == null)
             return Result<PaymentResponse>.Failure("Order not found");
@@ -71,6 +75,18 @@ public class PaymentService : IPaymentService
     {
         var payments = await _paymentRepo.GetAllAsync();
         return Result<List<PaymentResponse>>.Success(payments.Select(MapToResponse).ToList());
+    }
+
+    public async Task<Result<PaginatedResponse<PaymentResponse>>> GetAllPaginatedAsync(PaginatedRequest request)
+    {
+        var result = await _paymentRepo.GetAllPaginatedAsync(request);
+        return Result<PaginatedResponse<PaymentResponse>>.Success(new PaginatedResponse<PaymentResponse>
+        {
+            Items = result.Items.Select(MapToResponse).ToList(),
+            TotalCount = result.TotalCount,
+            Page = result.Page,
+            PageSize = result.PageSize
+        });
     }
 
     private static PaymentResponse MapToResponse(Payment p) =>

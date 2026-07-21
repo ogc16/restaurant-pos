@@ -14,4 +14,7 @@ public interface IOrderService
     Task<Result<OrderResponse>> UpdateStatusAsync(int id, UpdateOrderRequest request);
     Task<Result<List<OrderResponse>>> SplitBillAsync(SplitBillRequest request);
     Task<Result<bool>> VoidItemAsync(int orderId, int orderItemId);
+    Task<Result<OrderResponse>> ApplyPromotionAsync(int orderId, ApplyPromotionRequest request);
+    Task<Result<ReceiptResponse>> GetReceiptAsync(int orderId);
+    Task<Result<PaginatedResponse<OrderResponse>>> GetAllPaginatedAsync(PaginatedRequest request);
 }

@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RestaurantPOS.Application.Interfaces;
 using RestaurantPOS.Core.DTOs;
-using RestaurantPOS.Core.Enums;
-using RestaurantPOS.Core.Interfaces;
 
 namespace RestaurantPOS.Api.Controllers;
 
@@ -10,67 +9,57 @@ namespace RestaurantPOS.Api.Controllers;
 [Route("api/[controller]")]
 public class TablesController : ControllerBase
 {
-    private readonly ITableRepository _repository;
+    private readonly ITableService _service;
 
-    public TablesController(ITableRepository repository) => _repository = repository;
+    public TablesController(ITableService service) => _service = service;
 
     [Authorize]
     [HttpGet]
     public async Task<ActionResult<List<TableResponse>>> GetAll()
     {
-        var tables = await _repository.GetAllAsync();
-        return Ok(tables.Select(t => new TableResponse(t.Id, t.TableNumber, t.Capacity,
-            t.Status, t.Section, t.Seats, t.Orders.FirstOrDefault(o =>
-                o.Status != OrderStatus.Completed && o.Status != OrderStatus.Cancelled)?.Id)));
+        var result = await _service.GetAllAsync();
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(result.Error);
     }
 
     [Authorize]
     [HttpGet("available")]
     public async Task<ActionResult<List<TableResponse>>> GetAvailable()
     {
-        var tables = await _repository.GetAvailableAsync();
-        return Ok(tables.Select(t => new TableResponse(t.Id, t.TableNumber, t.Capacity,
-            t.Status, t.Section, t.Seats, null)));
+        var result = await _service.GetAvailableAsync();
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(result.Error);
+    }
+
+    [Authorize]
+    [HttpGet("{id}")]
+    public async Task<ActionResult<TableResponse>> GetById(int id)
+    {
+        var result = await _service.GetByIdAsync(id);
+        return result.IsSuccess ? Ok(result.Data) : NotFound(result.Error);
     }
 
     [Authorize(Roles = "Admin")]
     [HttpPost]
     public async Task<ActionResult<TableResponse>> Create([FromBody] CreateTableRequest request)
     {
-        var table = new Core.Entities.Table
-        {
-            TableNumber = request.TableNumber,
-            Capacity = request.Capacity,
-            Seats = request.Seats,
-            Section = request.Section
-        };
-        var created = await _repository.CreateAsync(table);
-        return CreatedAtAction(nameof(GetAll), new TableResponse(created.Id, created.TableNumber,
-            created.Capacity, created.Status, created.Section, created.Seats, null));
+        var result = await _service.CreateAsync(request);
+        return result.IsSuccess
+            ? CreatedAtAction(nameof(GetById), new { id = result.Data!.Id }, result.Data)
+            : BadRequest(result.Error);
     }
 
     [Authorize(Roles = "Admin")]
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateTableRequest request)
     {
-        var table = await _repository.GetByIdAsync(id);
-        if (table == null) return NotFound();
-
-        if (request.TableNumber != null) table.TableNumber = request.TableNumber;
-        if (request.Capacity.HasValue) table.Capacity = request.Capacity.Value;
-        if (request.Seats.HasValue) table.Seats = request.Seats.Value;
-        if (request.Section != null) table.Section = request.Section;
-        if (request.Status.HasValue) table.Status = request.Status.Value;
-
-        await _repository.UpdateAsync(table);
-        return Ok();
+        var result = await _service.UpdateAsync(id, request);
+        return result.IsSuccess ? Ok(result.Data) : NotFound(result.Error);
     }
 
     [Authorize(Roles = "Admin")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        await _repository.DeleteAsync(id);
-        return NoContent();
+        var result = await _service.DeleteAsync(id);
+        return result.IsSuccess ? NoContent() : NotFound(result.Error);
     }
 }

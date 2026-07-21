@@ -10,11 +10,15 @@ using RestaurantPOS.Infrastructure;
 using RestaurantPOS.Infrastructure.Data;
 using RestaurantPOS.Infrastructure.Identity;
 using System.Text;
+using RestaurantPOS.Api.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+}
 
 builder.Services.AddIdentity<AppUser, IdentityRole<int>>(options =>
 {
@@ -51,7 +55,11 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+    options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+});
 
 builder.Services.AddCors(options =>
 {
@@ -67,12 +75,17 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+
+if (!app.Environment.IsEnvironment("Testing"))
 {
-    var services = scope.ServiceProvider;
-    var context = services.GetRequiredService<AppDbContext>();
-    await context.Database.MigrateAsync();
-    await SeedData.SeedRolesAndAdminAsync(services);
+    using (var scope = app.Services.CreateScope())
+    {
+        var services = scope.ServiceProvider;
+        var context = services.GetRequiredService<AppDbContext>();
+        await context.Database.EnsureCreatedAsync();
+        await SeedData.SeedRolesAndAdminAsync(services);
+    }
 }
 
 if (app.Environment.IsDevelopment())

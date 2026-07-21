@@ -15,6 +15,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPaymentService, PaymentService>();
         services.AddScoped<IInventoryService, InventoryService>();
         services.AddScoped<IReportingService, ReportingService>();
+        services.AddScoped<ITableService, TableService>();
+        services.AddScoped<ICustomerService, CustomerService>();
+        services.AddScoped<IPromotionService, PromotionService>();
         return services;
     }
 }

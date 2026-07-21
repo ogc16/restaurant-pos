@@ -1,4 +1,5 @@
 using System.Text;
+using Microsoft.Extensions.Logging;
 using RestaurantPOS.Application.Interfaces;
 using RestaurantPOS.Core.Common;
 using RestaurantPOS.Core.DTOs;
@@ -10,8 +11,13 @@ namespace RestaurantPOS.Application.Services;
 public class ReportingService : IReportingService
 {
     private readonly IOrderRepository _orderRepo;
+    private readonly ILogger<ReportingService> _logger;
 
-    public ReportingService(IOrderRepository orderRepo) => _orderRepo = orderRepo;
+    public ReportingService(IOrderRepository orderRepo, ILogger<ReportingService> logger)
+    {
+        _orderRepo = orderRepo;
+        _logger = logger;
+    }
 
     public async Task<Result<DailySalesReport>> GetDailyReportAsync(DateTime date)
     {

@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RestaurantPOS.Application.Interfaces;
 using RestaurantPOS.Core.DTOs;
-using RestaurantPOS.Core.Entities;
-using RestaurantPOS.Core.Interfaces;
 
 namespace RestaurantPOS.Api.Controllers;
 
@@ -10,66 +9,57 @@ namespace RestaurantPOS.Api.Controllers;
 [Route("api/[controller]")]
 public class CustomersController : ControllerBase
 {
-    private readonly ICustomerRepository _repository;
+    private readonly ICustomerService _service;
 
-    public CustomersController(ICustomerRepository repository) => _repository = repository;
+    public CustomersController(ICustomerService service) => _service = service;
 
     [Authorize]
     [HttpGet]
     public async Task<ActionResult<List<CustomerResponse>>> GetAll()
     {
-        var customers = await _repository.GetAllAsync();
-        return Ok(customers.Select(c => new CustomerResponse(c.Id, c.FullName, c.Email,
-            c.Phone, c.LoyaltyPoints, c.PreferredNotes)));
+        var result = await _service.GetAllAsync();
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(result.Error);
     }
 
     [Authorize]
     [HttpGet("{id}")]
     public async Task<ActionResult<CustomerResponse>> GetById(int id)
     {
-        var customer = await _repository.GetByIdAsync(id);
-        if (customer == null) return NotFound();
-        return Ok(new CustomerResponse(customer.Id, customer.FullName, customer.Email,
-            customer.Phone, customer.LoyaltyPoints, customer.PreferredNotes));
+        var result = await _service.GetByIdAsync(id);
+        return result.IsSuccess ? Ok(result.Data) : NotFound(result.Error);
     }
 
     [Authorize]
     [HttpPost]
     public async Task<ActionResult<CustomerResponse>> Create([FromBody] CreateCustomerRequest request)
     {
-        var customer = new Customer
-        {
-            FullName = request.FullName,
-            Email = request.Email,
-            Phone = request.Phone,
-            PreferredNotes = request.PreferredNotes
-        };
-        var created = await _repository.CreateAsync(customer);
-        return Ok(new CustomerResponse(created.Id, created.FullName, created.Email,
-            created.Phone, created.LoyaltyPoints, created.PreferredNotes));
+        var result = await _service.CreateAsync(request);
+        return result.IsSuccess
+            ? CreatedAtAction(nameof(GetById), new { id = result.Data!.Id }, result.Data)
+            : BadRequest(result.Error);
     }
 
     [Authorize]
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateCustomerRequest request)
     {
-        var customer = await _repository.GetByIdAsync(id);
-        if (customer == null) return NotFound();
-
-        if (request.FullName != null) customer.FullName = request.FullName;
-        if (request.Email != null) customer.Email = request.Email;
-        if (request.Phone != null) customer.Phone = request.Phone;
-        if (request.PreferredNotes != null) customer.PreferredNotes = request.PreferredNotes;
-
-        await _repository.UpdateAsync(customer);
-        return Ok();
+        var result = await _service.UpdateAsync(id, request);
+        return result.IsSuccess ? Ok(result.Data) : NotFound(result.Error);
     }
 
     [Authorize]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        await _repository.DeleteAsync(id);
-        return NoContent();
+        var result = await _service.DeleteAsync(id);
+        return result.IsSuccess ? NoContent() : NotFound(result.Error);
+    }
+
+    [Authorize]
+    [HttpPost("{id}/redeem")]
+    public async Task<IActionResult> RedeemPoints(int id, [FromQuery] int points)
+    {
+        var result = await _service.RedeemLoyaltyPointsAsync(id, points);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(result.Error);
     }
 }

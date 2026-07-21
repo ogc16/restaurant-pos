@@ -70,4 +70,20 @@ public class OrdersController : ControllerBase
         var result = await _service.VoidItemAsync(orderId, orderItemId);
         return result.IsSuccess ? Ok() : NotFound(result.Error);
     }
+
+    [Authorize]
+    [HttpPost("{id}/apply-promotion")]
+    public async Task<ActionResult<OrderResponse>> ApplyPromotion(int id, [FromBody] ApplyPromotionRequest request)
+    {
+        var result = await _service.ApplyPromotionAsync(id, request);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(result.Error);
+    }
+
+    [Authorize]
+    [HttpGet("{id}/receipt")]
+    public async Task<IActionResult> GetReceipt(int id)
+    {
+        var result = await _service.GetReceiptAsync(id);
+        return result.IsSuccess ? Ok(result.Data) : NotFound(result.Error);
+    }
 }

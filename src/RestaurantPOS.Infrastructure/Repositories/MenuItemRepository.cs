@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using RestaurantPOS.Core.Entities;
 using RestaurantPOS.Core.Enums;
+using RestaurantPOS.Core.Common;
 using RestaurantPOS.Core.Interfaces;
 using RestaurantPOS.Infrastructure.Data;
 
@@ -26,7 +27,9 @@ public class MenuItemRepository : IMenuItemRepository
         => await _context.MenuItems.Where(m => m.IsDailySpecial && m.IsAvailable).AsNoTracking().ToListAsync();
 
     public async Task<MenuItem?> GetByIdAsync(int id)
-        => await _context.MenuItems.FindAsync(id);
+        => await _context.MenuItems
+            .Include(m => m.MenuItemInventories).ThenInclude(mi => mi.InventoryItem)
+            .FirstOrDefaultAsync(m => m.Id == id);
 
     public async Task<MenuItem> CreateAsync(MenuItem item)
     {
@@ -51,5 +54,18 @@ public class MenuItemRepository : IMenuItemRepository
             item.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
         }
+    }
+
+    public async Task<PaginatedResponse<MenuItem>> GetAllPaginatedAsync(PaginatedRequest request)
+    {
+        var query = _context.Set<MenuItem>().AsNoTracking();
+        var totalCount = await query.CountAsync();
+        var items = await query.OrderByDescending(m => m.CreatedAt).Skip(request.Skip).Take(request.PageSize).ToListAsync();
+        return new PaginatedResponse<MenuItem> { Items = items, TotalCount = totalCount, Page = request.Page, PageSize = request.PageSize };
+    }
+
+    public async Task<int> GetCountAsync()
+    {
+        return await _context.Set<MenuItem>().CountAsync();
     }
 }
