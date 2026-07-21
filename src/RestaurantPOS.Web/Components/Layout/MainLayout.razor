@@ -79,7 +79,7 @@ else
     private void HandleLoginSuccess()
     {
         _isLoggedIn = Auth.IsLoggedIn;
-        StateHasChanged();
+        InvokeAsync(StateHasChanged);
     }
 
     private void Logout()
