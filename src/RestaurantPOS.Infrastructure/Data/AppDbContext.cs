@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using RestaurantPOS.Core.Common;
 using RestaurantPOS.Core.Entities;
 
 namespace RestaurantPOS.Infrastructure.Data;
@@ -24,12 +25,21 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<int>, int>
     {
         base.OnModelCreating(builder);
 
+        foreach (var entityType in builder.Model.GetEntityTypes())
+        {
+            if (typeof(BaseEntity).IsAssignableFrom(entityType.ClrType))
+            {
+                builder.Entity(entityType.ClrType)
+                    .Property(nameof(BaseEntity.CreatedAt))
+                    .HasDefaultValueSql("datetime('now')");
+            }
+        }
+
         builder.Entity<MenuItem>(e =>
         {
             e.HasKey(m => m.Id);
             e.Property(m => m.Name).HasMaxLength(200).IsRequired();
             e.Property(m => m.Price).HasColumnType("decimal(18,2)");
-            e.HasQueryFilter(m => !m.IsDeleted);
         });
 
         builder.Entity<Order>(e =>
@@ -83,7 +93,6 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<int>, int>
             e.HasKey(i => i.Id);
             e.Property(i => i.Name).HasMaxLength(200).IsRequired();
             e.Property(i => i.CostPerUnit).HasColumnType("decimal(18,2)");
-            e.HasQueryFilter(i => !i.IsDeleted);
         });
 
         builder.Entity<MenuItemInventory>(e =>
