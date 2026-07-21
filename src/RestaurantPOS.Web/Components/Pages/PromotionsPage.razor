@@ -1,0 +1,77 @@
+@page "/promotions"
+@rendermode InteractiveServer
+@inject ApiService Api
+
+<div class="dashboard">
+    <div class="dashboard-header">
+        <h1>Promotions</h1>
+        <button class="btn btn-primary" @onclick="() => showCreateModal = true">+ Add Promotion</button>
+    </div>
+    <div class="card">
+        <table>
+            <thead><tr><th>Code</th><th>Description</th><th>Discount</th><th>Valid</th><th>Uses</th><th>Active</th><th>Actions</th></tr></thead>
+            <tbody>
+            @foreach (var p in promotions)
+            {
+                <tr>
+                    <td><strong>@p.Code</strong></td>
+                    <td>@p.Description</td>
+                    <td>@(p.IsPercentBased ? $"{p.DiscountPercent}%" : $"${p.DiscountAmount}")</td>
+                    <td>@p.ValidFrom.ToString("MMM dd") - @p.ValidUntil.ToString("MMM dd")</td>
+                    <td>@p.CurrentUses @(p.MaxUses.HasValue ? $"/ {p.MaxUses}" : "")</td>
+                    <td><span class="badge @(p.IsActive ? "badge-success" : "badge-gray")">@(p.IsActive ? "Active" : "Inactive")</span></td>
+                    <td><button class="btn btn-sm btn-danger" @onclick="() => DeletePromo(p.Id)">Delete</button></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@if (showCreateModal)
+{
+    <div class="modal-overlay" @onclick="() => showCreateModal = false">
+        <div class="modal" @onclick:stopPropagation>
+            <div class="modal-header"><h2>Add Promotion</h2><button class="close-btn" @onclick="() => showCreateModal = false">&times;</button></div>
+            <div class="form-group"><label>Code</label><input @bind="newPromo.Code" /></div>
+            <div class="form-group"><label>Description</label><input @bind="newPromo.Description" /></div>
+            <div class="form-group"><label><input type="checkbox" @bind="newPromo.IsPercentBased" /> Percent-based</label></div>
+            @if (newPromo.IsPercentBased)
+            {
+                <div class="form-group"><label>Discount %</label><input type="number" @bind="newPromo.DiscountPercent" step="0.1" /></div>
+            }
+            else
+            {
+                <div class="form-group"><label>Discount Amount</label><input type="number" @bind="newPromo.DiscountAmount" step="0.01" /></div>
+            }
+            <div class="form-group"><label>Valid From</label><input type="date" @bind="newPromo.ValidFrom" /></div>
+            <div class="form-group"><label>Valid Until</label><input type="date" @bind="newPromo.ValidUntil" /></div>
+            <button class="btn btn-primary btn-block" @onclick="CreatePromo">Create</button>
+        </div>
+    </div>
+}
+
+@code {
+    private List<PromoDto> promotions = new();
+    private bool showCreateModal;
+    private NewPromo newPromo = new() { ValidFrom = DateTime.Today, ValidUntil = DateTime.Today.AddDays(30) };
+
+    protected override async Task OnInitializedAsync() => promotions = await Api.GetAsync<PromoDto>("api/promotions");
+
+    private async Task CreatePromo()
+    {
+        await Api.PostAsync<object>("api/promotions", newPromo);
+        showCreateModal = false;
+        newPromo = new() { ValidFrom = DateTime.Today, ValidUntil = DateTime.Today.AddDays(30) };
+        promotions = await Api.GetAsync<PromoDto>("api/promotions");
+    }
+
+    private async Task DeletePromo(int id)
+    {
+        await Api.DeleteAsync($"api/promotions/{id}");
+        promotions = await Api.GetAsync<PromoDto>("api/promotions");
+    }
+
+    record PromoDto(int Id, string Code, string Description, decimal DiscountPercent, decimal DiscountAmount, bool IsPercentBased, DateTime ValidFrom, DateTime ValidUntil, bool IsActive, int? MaxUses, int CurrentUses);
+    class NewPromo { public string Code { get; set; } = ""; public string Description { get; set; } = ""; public decimal DiscountPercent { get; set; } = 10; public decimal DiscountAmount { get; set; } public bool IsPercentBased { get; set; } = true; public DateTime ValidFrom { get; set; } public DateTime ValidUntil { get; set; } public int? MaxUses { get; set; } }
+}

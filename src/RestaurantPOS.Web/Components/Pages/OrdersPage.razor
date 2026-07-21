@@ -1,0 +1,151 @@
+@page "/orders"
+@rendermode InteractiveServer
+@inject ApiService Api
+
+<div class="dashboard">
+    <div class="dashboard-header">
+        <h1>Orders</h1>
+    </div>
+    <div class="toolbar">
+        <select @bind="filterStatus" @bind:after="LoadOrders" class="search-box" style="min-width:auto;">
+            <option value="">All Status</option>
+            <option value="Pending">Pending</option>
+            <option value="Confirmed">Confirmed</option>
+            <option value="Preparing">Preparing</option>
+            <option value="Ready">Ready</option>
+            <option value="Served">Served</option>
+            <option value="Completed">Completed</option>
+            <option value="Cancelled">Cancelled</option>
+        </select>
+    </div>
+    <div class="card">
+        <table>
+            <thead><tr><th>Order #</th><th>Table</th><th>Waiter</th><th>Items</th><th>Total</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+            <tbody>
+            @foreach (var o in orders)
+            {
+                <tr>
+                    <td><strong>@o.Id</strong></td>
+                    <td>@o.TableNumber</td>
+                    <td>@(o.WaiterName ?? "-")</td>
+                    <td>@o.Items.Count</td>
+                    <td>$@o.TotalAmount.ToString("N2")</td>
+                    <td><span class="badge @GetBadge(o.Status)">@o.Status</span></td>
+                    <td>@o.CreatedAt.ToString("HH:mm")</td>
+                    <td>
+                        <div class="flex gap-1">
+                            @if (o.Status == "Pending")
+                            {
+                                <button class="btn btn-sm btn-primary" @onclick="@(() => UpdateStatus(o.Id, "Confirmed"))">Confirm</button>
+                                <button class="btn btn-sm btn-danger" @onclick="@(() => UpdateStatus(o.Id, "Cancelled"))">Cancel</button>
+                            }
+                            else if (o.Status == "Confirmed")
+                            {
+                                <button class="btn btn-sm btn-primary" @onclick="@(() => UpdateStatus(o.Id, "Preparing"))">Start Prep</button>
+                            }
+                            else if (o.Status == "Preparing")
+                            {
+                                <button class="btn btn-sm btn-success" @onclick="@(() => UpdateStatus(o.Id, "Ready"))">Ready</button>
+                            }
+                            else if (o.Status == "Ready")
+                            {
+                                <button class="btn btn-sm btn-success" @onclick="@(() => UpdateStatus(o.Id, "Served"))">Served</button>
+                            }
+                            else if (o.Status == "Served")
+                            {
+                                <button class="btn btn-sm btn-success" @onclick="@(() => ShowPayment(o))">Pay</button>
+                            }
+                        </div>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+        @if (!orders.Any())
+        {
+            <div class="empty-state"><p>No orders found</p></div>
+        }
+    </div>
+</div>
+
+@if (showPayModal && selectedOrder != null)
+{
+    <div class="modal-overlay" @onclick="() => showPayModal = false">
+        <div class="modal" @onclick:stopPropagation>
+            <div class="modal-header">
+                <h2>Process Payment - Order #@selectedOrder.Id</h2>
+                <button class="close-btn" @onclick="() => showPayModal = false">&times;</button>
+            </div>
+            <div style="margin-bottom:1rem;">
+                <div style="font-size:1.5rem;font-weight:700;text-align:center;margin-bottom:1rem;">Total: $@selectedOrder.TotalAmount.ToString("N2")</div>
+                <div class="form-group">
+                    <label>Payment Method</label>
+                    <select @bind="payMethod" class="form-group input">
+                        <option value="Cash">Cash</option>
+                        <option value="CreditCard">Credit Card</option>
+                        <option value="DebitCard">Debit Card</option>
+                        <option value="MobileMoney">Mobile Money</option>
+                        <option value="PayPal">PayPal</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Tip Amount</label>
+                    <input type="number" @bind="tipAmount" step="0.01" min="0" class="form-group input" />
+                </div>
+                <button class="btn btn-success btn-block" @onclick="ProcessPayment">Process Payment</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<OrderDto> orders = new();
+    private string filterStatus = "";
+    private bool showPayModal;
+    private OrderDto? selectedOrder;
+    private string payMethod = "Cash";
+    private decimal tipAmount;
+
+    protected override async Task OnInitializedAsync() => await LoadOrders();
+
+    private async Task LoadOrders()
+    {
+        var endpoint = string.IsNullOrEmpty(filterStatus) ? "api/orders" : $"api/orders/status/{filterStatus}";
+        orders = await Api.GetAsync<OrderDto>(endpoint);
+    }
+
+    private async Task UpdateStatus(int orderId, string status)
+    {
+        await Api.PutAsync($"api/orders/{orderId}/status", new { Status = status });
+        await LoadOrders();
+    }
+
+    private void ShowPayment(OrderDto order)
+    {
+        selectedOrder = order;
+        tipAmount = 0;
+        showPayModal = true;
+    }
+
+    private async Task ProcessPayment()
+    {
+        if (selectedOrder == null) return;
+        await Api.PostAsync<object>("api/payments", new
+        {
+            OrderId = selectedOrder.Id,
+            Method = payMethod,
+            Amount = selectedOrder.TotalAmount,
+            TipAmount = tipAmount
+        });
+        showPayModal = false;
+        await LoadOrders();
+    }
+
+    private string GetBadge(string s) => s switch
+    {
+        "Pending" => "badge-warning", "Confirmed" => "badge-info", "Preparing" => "badge-info",
+        "Ready" => "badge-success", "Served" => "badge-success", "Completed" => "badge-gray", "Cancelled" => "badge-danger", _ => "badge-gray"
+    };
+
+    record OrderDto(int Id, string TableNumber, string? WaiterName, string Status, decimal SubTotal, decimal TaxAmount, decimal DiscountAmount, decimal TipAmount, decimal TotalAmount, int SeatNumber, string? Notes, DateTime CreatedAt, List<object> Items);
+}

@@ -1,0 +1,54 @@
+@page "/tables"
+@rendermode InteractiveServer
+@inject ApiService Api
+
+<div class="dashboard">
+    <div class="dashboard-header">
+        <h1>Tables</h1>
+    </div>
+    <div class="section-tabs mb-1">
+        <button class="section-tab @(filter == "" ? "active" : "")" @onclick='() => SetFilter("")'>All</button>
+        <button class="section-tab @(filter == "Available" ? "active" : "")" @onclick='() => SetFilter("Available")'>Available</button>
+        <button class="section-tab @(filter == "Occupied" ? "active" : "")" @onclick='() => SetFilter("Occupied")'>Occupied</button>
+        <button class="section-tab @(filter == "Reserved" ? "active" : "")" @onclick='() => SetFilter("Reserved")'>Reserved</button>
+    </div>
+    <div class="table-grid">
+        @foreach (var table in filteredTables)
+        {
+            <div class="table-card @table.Status.ToLower()">
+                <div class="number">@table.TableNumber</div>
+                <div class="info">@table.Seats seats &middot; @table.Section</div>
+                <span class="badge @GetBadge(table.Status) mt-1">@table.Status</span>
+                @if (table.CurrentOrderId.HasValue)
+                {
+                    <div style="margin-top:0.5rem;font-size:0.8rem;color:var(--text-muted);">Order #@table.CurrentOrderId</div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<TableDto> allTables = new();
+    private List<TableDto> filteredTables = new();
+    private string filter = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        allTables = await Api.GetAsync<TableDto>("api/tables");
+        filteredTables = allTables;
+    }
+
+    private void SetFilter(string f)
+    {
+        filter = f;
+        filteredTables = string.IsNullOrEmpty(f) ? allTables : allTables.Where(t => t.Status == f).ToList();
+    }
+
+    private string GetBadge(string s) => s switch
+    {
+        "Available" => "badge-success", "Occupied" => "badge-danger", "Reserved" => "badge-warning", _ => "badge-gray"
+    };
+
+    record TableDto(int Id, string TableNumber, int Capacity, string Status, string? Section, int Seats, int? CurrentOrderId);
+}

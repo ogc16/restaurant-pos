@@ -1,0 +1,123 @@
+@page "/"
+@rendermode InteractiveServer
+@inject ApiService Api
+@inject AuthService Auth
+
+<div class="dashboard">
+    <div class="dashboard-header">
+        <h1>Dashboard</h1>
+        <span class="text-muted">Welcome, @Auth.FullName</span>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <h3>Today's Revenue</h3>
+            <div class="value">$@todayRevenue.ToString("N2")</div>
+        </div>
+        <div class="stat-card success">
+            <h3>Orders Today</h3>
+            <div class="value">@todayOrders</div>
+        </div>
+        <div class="stat-card warning">
+            <h3>Active Orders</h3>
+            <div class="value">@activeOrders</div>
+        </div>
+        <div class="stat-card danger">
+            <h3>Tables Occupied</h3>
+            <div class="value">@occupiedTables / @totalTables</div>
+        </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div class="card">
+            <div class="card-header">
+                <h2>Active Orders</h2>
+            </div>
+            @if (orders.Any(o => o.Status != "Completed" && o.Status != "Cancelled"))
+            {
+                <table>
+                    <thead><tr><th>#</th><th>Table</th><th>Status</th><th>Total</th></tr></thead>
+                    <tbody>
+                    @foreach (var o in orders.Where(o => o.Status != "Completed" && o.Status != "Cancelled").Take(5))
+                    {
+                        <tr>
+                            <td>@o.Id</td>
+                            <td>@o.TableNumber</td>
+                            <td><span class="badge @GetStatusBadge(o.Status)">@o.Status</span></td>
+                            <td>$@o.TotalAmount.ToString("N2")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div class="empty-state"><p>No active orders</p></div>
+            }
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>Low Stock Alerts</h2>
+            </div>
+            @if (lowStockItems.Any())
+            {
+                <table>
+                    <thead><tr><th>Item</th><th>Qty</th><th>Status</th></tr></thead>
+                    <tbody>
+                    @foreach (var item in lowStockItems.Take(5))
+                    {
+                        <tr>
+                            <td>@item.Name</td>
+                            <td>@item.Quantity @item.Unit</td>
+                            <td><span class="badge @(item.IsOutOfStock ? "badge-danger" : "badge-warning")">@(item.IsOutOfStock ? "Out of Stock" : "Low Stock")</span></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div class="empty-state"><p>All stock levels OK</p></div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private decimal todayRevenue;
+    private int todayOrders;
+    private int activeOrders;
+    private int occupiedTables;
+    private int totalTables;
+    private List<OrderResponse> orders = new();
+    private List<InventoryItemResponse> lowStockItems = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        orders = await Api.GetAsync<OrderResponse>("api/orders");
+        activeOrders = orders.Count(o => o.Status != "Completed" && o.Status != "Cancelled");
+        todayOrders = orders.Count(o => DateOnly.FromDateTime(o.CreatedAt) == DateOnly.FromDateTime(DateTime.Today));
+        todayRevenue = orders.Where(o => o.Status == "Completed" && DateOnly.FromDateTime(o.CreatedAt) == DateOnly.FromDateTime(DateTime.Today)).Sum(o => o.TotalAmount);
+
+        var tables = await Api.GetAsync<TableInfo>("api/tables");
+        totalTables = tables.Count;
+        occupiedTables = tables.Count(t => t.Status == "Occupied");
+
+        lowStockItems = await Api.GetAsync<InventoryItemResponse>("api/inventory/low-stock");
+    }
+
+    private string GetStatusBadge(string status) => status switch
+    {
+        "Pending" => "badge-warning",
+        "Confirmed" => "badge-info",
+        "Preparing" => "badge-info",
+        "Ready" => "badge-success",
+        "Served" => "badge-success",
+        _ => "badge-gray"
+    };
+
+    private record OrderResponse(int Id, string TableNumber, string? WaiterName, string Status, decimal SubTotal, decimal TaxAmount, decimal DiscountAmount, decimal TipAmount, decimal TotalAmount, int SeatNumber, string? Notes, DateTime CreatedAt, List<object> Items);
+    private record TableInfo(int Id, string TableNumber, int Capacity, string Status, string? Section, int Seats, int? CurrentOrderId);
+    private record InventoryItemResponse(int Id, string Name, string? Description, int Quantity, string Unit, int LowStockThreshold, bool IsOutOfStock, bool IsLowStock, string? SupplierName, string? SupplierContact, decimal CostPerUnit);
+}

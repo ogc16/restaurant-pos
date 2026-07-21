@@ -1,0 +1,10 @@
+namespace RestaurantPOS.Core.Entities;
+
+public class MenuItemInventory
+{
+    public int MenuItemId { get; set; }
+    public MenuItem MenuItem { get; set; } = null!;
+    public int InventoryItemId { get; set; }
+    public InventoryItem InventoryItem { get; set; } = null!;
+    public decimal QuantityRequired { get; set; }
+}

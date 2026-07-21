@@ -1,0 +1,99 @@
+@page "/menu"
+@rendermode InteractiveServer
+@inject ApiService Api
+
+<div class="dashboard">
+    <div class="dashboard-header">
+        <h1>Menu Management</h1>
+        <button class="btn btn-primary" @onclick="() => showCreateModal = true">+ Add Item</button>
+    </div>
+    <div class="card">
+        <table>
+            <thead><tr><th>Name</th><th>Category</th><th>Price</th><th>Status</th><th>Special</th><th>Actions</th></tr></thead>
+            <tbody>
+            @foreach (var item in menuItems)
+            {
+                <tr>
+                    <td><strong>@item.Name</strong><br /><span class="text-sm text-muted">@item.Description</span></td>
+                    <td>@item.Category</td>
+                    <td>$@item.Price.ToString("N2")</td>
+                    <td><span class="badge @(item.IsAvailable ? "badge-success" : "badge-danger")">@(item.IsAvailable ? "Available" : "Sold Out")</span></td>
+                    <td>@(item.IsDailySpecial ? "⭐" : "")</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline" @onclick="() => ToggleAvailability(item.Id)">Toggle</button>
+                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteItem(item.Id)">Delete</button>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@if (showCreateModal)
+{
+    <div class="modal-overlay" @onclick="() => showCreateModal = false">
+        <div class="modal" @onclick:stopPropagation>
+            <div class="modal-header">
+                <h2>Add Menu Item</h2>
+                <button class="close-btn" @onclick="() => showCreateModal = false">&times;</button>
+            </div>
+            <div class="form-group"><label>Name</label><input @bind="newItem.Name" /></div>
+            <div class="form-group"><label>Description</label><input @bind="newItem.Description" /></div>
+            <div class="form-group"><label>Price</label><input type="number" @bind="newItem.Price" step="0.01" /></div>
+            <div class="form-group"><label>Category</label>
+                <select @bind="newItem.Category">
+                    <option value="Starter">Starter</option>
+                    <option value="Main">Main</option>
+                    <option value="Dessert">Dessert</option>
+                    <option value="Drink">Drink</option>
+                    <option value="Side">Side</option>
+                    <option value="Special">Special</option>
+                </select>
+            </div>
+            <div class="form-group"><label>Prep Time (min)</label><input type="number" @bind="newItem.PrepTimeMinutes" /></div>
+            <div class="form-group"><label><input type="checkbox" @bind="newItem.IsDailySpecial" /> Daily Special</label></div>
+            <button class="btn btn-primary btn-block" @onclick="CreateItem">Create</button>
+        </div>
+    </div>
+}
+
+@code {
+    private List<MenuItemDto> menuItems = new();
+    private bool showCreateModal;
+    private NewMenuItem newItem = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        menuItems = await Api.GetAsync<MenuItemDto>("api/menuitems");
+    }
+
+    private async Task CreateItem()
+    {
+        await Api.PostAsync<object>("api/menuitems", new
+        {
+            newItem.Name, newItem.Description, newItem.Price,
+            Category = newItem.Category,
+            newItem.PrepTimeMinutes,
+            newItem.IsDailySpecial
+        });
+        showCreateModal = false;
+        newItem = new();
+        menuItems = await Api.GetAsync<MenuItemDto>("api/menuitems");
+    }
+
+    private async Task ToggleAvailability(int id)
+    {
+        await Api.PatchAsync($"api/menuitems/{id}/availability");
+        menuItems = await Api.GetAsync<MenuItemDto>("api/menuitems");
+    }
+
+    private async Task DeleteItem(int id)
+    {
+        await Api.DeleteAsync($"api/menuitems/{id}");
+        menuItems = await Api.GetAsync<MenuItemDto>("api/menuitems");
+    }
+
+    record MenuItemDto(int Id, string Name, string Description, decimal Price, string? ImageUrl, string Category, bool IsAvailable, bool IsDailySpecial, int PrepTimeMinutes);
+    class NewMenuItem { public string Name { get; set; } = ""; public string Description { get; set; } = ""; public decimal Price { get; set; } public string Category { get; set; } = "Main"; public int PrepTimeMinutes { get; set; } public bool IsDailySpecial { get; set; } }
+}

@@ -1,0 +1,80 @@
+﻿@inherits LayoutComponentBase
+
+@inject AuthService Auth
+@inject NavigationManager Nav
+
+@if (!Auth.IsLoggedIn)
+{
+    <Login OnLoginSuccess="HandleLoginSuccess" />
+}
+else
+{
+    <div class="app-shell">
+        <div class="sidebar" style="width:240px;background:#1e293b;color:white;display:flex;flex-direction:column;position:fixed;height:100vh;z-index:100;">
+            <div style="padding:1.25rem;border-bottom:1px solid #334155;">
+                <h2 style="font-size:1.1rem;font-weight:700;color:white;">RestaurantPOS</h2>
+                <div style="font-size:0.75rem;color:#94a3b8;margin-top:0.25rem;">@Auth.FullName</div>
+                <div style="font-size:0.7rem;color:#64748b;">@Auth.Role</div>
+            </div>
+            <nav style="flex:1;padding:0.75rem 0;">
+                <NavLink href="" Match="NavLinkMatch.All" Style="display:flex;align-items:center;gap:0.75rem;padding:0.7rem 1.25rem;color:#cbd5e1;text-decoration:none;font-size:0.9rem;" ActiveStyle="background:#334155;color:white;border-radius:0 0.5rem 0.5rem 0;">
+                    <span>🏠</span> Dashboard
+                </NavLink>
+                <NavLink href="pos" Style="display:flex;align-items:center;gap:0.75rem;padding:0.7rem 1.25rem;color:#cbd5e1;text-decoration:none;font-size:0.9rem;" ActiveStyle="background:#334155;color:white;border-radius:0 0.5rem 0.5rem 0;">
+                    <span>🍽️</span> POS Terminal
+                </NavLink>
+                <NavLink href="orders" Style="display:flex;align-items:center;gap:0.75rem;padding:0.7rem 1.25rem;color:#cbd5e1;text-decoration:none;font-size:0.9rem;" ActiveStyle="background:#334155;color:white;border-radius:0 0.5rem 0.5rem 0;">
+                    <span>📋</span> Orders
+                </NavLink>
+                <NavLink href="tables" Style="display:flex;align-items:center;gap:0.75rem;padding:0.7rem 1.25rem;color:#cbd5e1;text-decoration:none;font-size:0.9rem;" ActiveStyle="background:#334155;color:white;border-radius:0 0.5rem 0.5rem 0;">
+                    <span>🪑</span> Tables
+                </NavLink>
+                @if (Auth.HasRole("Admin"))
+                {
+                    <NavLink href="menu" Style="display:flex;align-items:center;gap:0.75rem;padding:0.7rem 1.25rem;color:#cbd5e1;text-decoration:none;font-size:0.9rem;" ActiveStyle="background:#334155;color:white;border-radius:0 0.5rem 0.5rem 0;">
+                        <span>📖</span> Menu
+                    </NavLink>
+                    <NavLink href="inventory" Style="display:flex;align-items:center;gap:0.75rem;padding:0.7rem 1.25rem;color:#cbd5e1;text-decoration:none;font-size:0.9rem;" ActiveStyle="background:#334155;color:white;border-radius:0 0.5rem 0.5rem 0;">
+                        <span>📦</span> Inventory
+                    </NavLink>
+                    <NavLink href="reports" Style="display:flex;align-items:center;gap:0.75rem;padding:0.7rem 1.25rem;color:#cbd5e1;text-decoration:none;font-size:0.9rem;" ActiveStyle="background:#334155;color:white;border-radius:0 0.5rem 0.5rem 0;">
+                        <span>📊</span> Reports
+                    </NavLink>
+                    <NavLink href="customers" Style="display:flex;align-items:center;gap:0.75rem;padding:0.7rem 1.25rem;color:#cbd5e1;text-decoration:none;font-size:0.9rem;" ActiveStyle="background:#334155;color:white;border-radius:0 0.5rem 0.5rem 0;">
+                        <span>👥</span> Customers
+                    </NavLink>
+                    <NavLink href="promotions" Style="display:flex;align-items:center;gap:0.75rem;padding:0.7rem 1.25rem;color:#cbd5e1;text-decoration:none;font-size:0.9rem;" ActiveStyle="background:#334155;color:white;border-radius:0 0.5rem 0.5rem 0;">
+                        <span>🏷️</span> Promotions
+                    </NavLink>
+                    <NavLink href="staff" Style="display:flex;align-items:center;gap:0.75rem;padding:0.7rem 1.25rem;color:#cbd5e1;text-decoration:none;font-size:0.9rem;" ActiveStyle="background:#334155;color:white;border-radius:0 0.5rem 0.5rem 0;">
+                        <span>⚙️</span> Staff
+                    </NavLink>
+                }
+            </nav>
+            <div style="padding:0.75rem 1.25rem;border-top:1px solid #334155;">
+                <button class="btn btn-sm" style="width:100%;background:#475569;color:white;border:none;" @onclick="Logout">Logout</button>
+            </div>
+        </div>
+        <main style="margin-left:240px;min-height:100vh;">
+            @Body
+        </main>
+    </div>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        Auth.OnAuthStateChanged += StateHasChanged;
+    }
+
+    private void HandleLoginSuccess()
+    {
+        StateHasChanged();
+    }
+
+    private void Logout()
+    {
+        Auth.Logout();
+        Nav.NavigateTo("/");
+    }
+}

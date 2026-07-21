@@ -1,0 +1,169 @@
+@page "/pos"
+@rendermode InteractiveServer
+@inject ApiService Api
+@inject AuthService Auth
+
+<div class="pos-layout">
+    <div style="display:flex;flex-direction:column;overflow:hidden;">
+        <div class="toolbar">
+            <div class="section-tabs">
+                <button class="section-tab @(selectedCategory == "" ? "active" : "")" @onclick='() => FilterCategory("")'>All</button>
+                <button class="section-tab @(selectedCategory == "Starter" ? "active" : "")" @onclick='() => FilterCategory("Starter")'>Starters</button>
+                <button class="section-tab @(selectedCategory == "Main" ? "active" : "")" @onclick='() => FilterCategory("Main")'>Mains</button>
+                <button class="section-tab @(selectedCategory == "Dessert" ? "active" : "")" @onclick='() => FilterCategory("Dessert")'>Desserts</button>
+                <button class="section-tab @(selectedCategory == "Drink" ? "active" : "")" @onclick='() => FilterCategory("Drink")'>Drinks</button>
+                <button class="section-tab @(selectedCategory == "Special" ? "active" : "")" @onclick='() => FilterCategory("Special")'>Specials</button>
+            </div>
+            <select class="search-box" style="min-width:auto;" @bind="selectedTableId">
+                <option value="">Select Table</option>
+                @foreach (var t in availableTables)
+                {
+                    <option value="@t.Id">Table @t.TableNumber (@t.Seats seats)</option>
+                }
+            </select>
+        </div>
+        <div class="menu-grid">
+            @foreach (var item in filteredMenuItems)
+            {
+                <div class="menu-item-card @(!item.IsAvailable ? "sold-out" : "")" @onclick="() => AddToOrder(item)">
+                    <div class="category">@item.Category</div>
+                    <div class="name">@item.Name</div>
+                    <div class="price">$@item.Price.ToString("N2")</div>
+                    @if (item.IsDailySpecial) { <span class="badge badge-warning" style="margin-top:0.25rem;">Special</span> }
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="order-panel">
+        <div class="order-panel-header">
+            <div class="flex" style="justify-content:space-between;align-items:center;">
+                <h3>Current Order</h3>
+                <span class="text-sm text-muted">@(selectedTableId != null ? $"Table {availableTables.FirstOrDefault(t => t.Id.ToString() == selectedTableId)?.TableNumber}" : "No table")</span>
+            </div>
+        </div>
+        <div class="order-panel-items">
+            @if (!orderItems.Any())
+            {
+                <div class="empty-state" style="padding:2rem;"><p>Select items from the menu</p></div>
+            }
+            @foreach (var item in orderItems)
+            {
+                <div class="order-item">
+                    <div class="info">
+                        <div class="name">@item.Name</div>
+                        <div class="detail">$@item.Price.ToString("N2") each</div>
+                    </div>
+                    <div class="actions">
+                        <button class="qty-btn" @onclick="() => UpdateQty(item, -1)">-</button>
+                        <span style="min-width:24px;text-align:center;font-weight:600;">@item.Quantity</span>
+                        <button class="qty-btn" @onclick="() => UpdateQty(item, 1)">+</button>
+                        <button class="qty-btn" style="color:var(--danger);" @onclick="() => RemoveItem(item)">×</button>
+                    </div>
+                </div>
+            }
+        </div>
+        <div class="order-panel-footer">
+            <div style="display:flex;justify-content:space-between;font-size:0.9rem;margin-bottom:0.25rem;">
+                <span>Subtotal</span><span>$@subtotal.ToString("N2")</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:0.9rem;margin-bottom:0.25rem;">
+                <span>Tax (8%)</span><span>$@tax.ToString("N2")</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:1.1rem;font-weight:700;margin:0.75rem 0;padding-top:0.75rem;border-top:2px solid var(--border);">
+                <span>Total</span><span>$@total.ToString("N2")</span>
+            </div>
+            <button class="btn btn-success btn-block" disabled="@(!orderItems.Any() || selectedTableId == null || submitting)" @onclick="SubmitOrder">
+                @(submitting ? "Placing Order..." : "Place Order")
+            </button>
+            @if (!string.IsNullOrEmpty(orderError))
+            {
+                <p class="error-msg mt-1">@orderError</p>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<MenuItemDto> allMenuItems = new();
+    private List<MenuItemDto> filteredMenuItems = new();
+    private List<OrderItemCart> orderItems = new();
+    private List<TableInfo> availableTables = new();
+    private string selectedCategory = "";
+    private string? selectedTableId;
+    private bool submitting;
+    private string orderError = "";
+
+    private decimal subtotal => orderItems.Sum(i => i.Price * i.Quantity);
+    private decimal tax => Math.Round(subtotal * 0.08m, 2);
+    private decimal total => subtotal + tax;
+
+    protected override async Task OnInitializedAsync()
+    {
+        allMenuItems = await Api.GetAsync<MenuItemDto>("api/menuitems");
+        filteredMenuItems = allMenuItems.Where(m => m.IsAvailable).ToList();
+        availableTables = await Api.GetAsync<TableInfo>("api/tables");
+    }
+
+    private void FilterCategory(string cat)
+    {
+        selectedCategory = cat;
+        filteredMenuItems = allMenuItems.Where(m => m.IsAvailable && (cat == "" || m.Category == cat || (cat == "Special" && m.IsDailySpecial))).ToList();
+    }
+
+    private void AddToOrder(MenuItemDto item)
+    {
+        if (!item.IsAvailable) return;
+        var existing = orderItems.FirstOrDefault(i => i.MenuItemId == item.Id);
+        if (existing != null)
+            existing.Quantity++;
+        else
+            orderItems.Add(new OrderItemCart { MenuItemId = item.Id, Name = item.Name, Price = item.Price, Quantity = 1 });
+    }
+
+    private void UpdateQty(OrderItemCart item, int delta)
+    {
+        item.Quantity += delta;
+        if (item.Quantity <= 0) orderItems.Remove(item);
+    }
+
+    private void RemoveItem(OrderItemCart item) => orderItems.Remove(item);
+
+    private async Task SubmitOrder()
+    {
+        if (!orderItems.Any() || selectedTableId == null) return;
+        submitting = true;
+        orderError = "";
+        StateHasChanged();
+
+        var request = new
+        {
+            TableId = int.Parse(selectedTableId),
+            SeatNumber = 1,
+            WaiterId = Auth.UserEmail,
+            WaiterName = Auth.FullName,
+            Items = orderItems.Select(i => new { MenuItemId = i.MenuItemId, Quantity = i.Quantity }).ToList(),
+            Notes = ""
+        };
+
+        var result = await Api.PostAsync<OrderPlacedResponse>("api/orders", request);
+        if (result != null)
+        {
+            orderItems.Clear();
+            selectedTableId = null;
+            availableTables = await Api.GetAsync<TableInfo>("api/tables");
+        }
+        else
+        {
+            orderError = "Failed to place order. Please try again.";
+        }
+
+        submitting = false;
+        StateHasChanged();
+    }
+
+    private record MenuItemDto(int Id, string Name, string Description, decimal Price, string? ImageUrl, string Category, bool IsAvailable, bool IsDailySpecial, int PrepTimeMinutes);
+    private record TableInfo(int Id, string TableNumber, int Capacity, string Status, string? Section, int Seats, int? CurrentOrderId);
+    private record OrderPlacedResponse(int Id, string TableNumber, string Status);
+    class OrderItemCart { public int MenuItemId { get; set; } public string Name { get; set; } = ""; public decimal Price { get; set; } public int Quantity { get; set; } }
+}

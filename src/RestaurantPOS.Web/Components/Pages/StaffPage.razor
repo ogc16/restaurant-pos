@@ -1,0 +1,70 @@
+@page "/staff"
+@rendermode InteractiveServer
+@inject ApiService Api
+@inject AuthService Auth
+
+<div class="dashboard">
+    <div class="dashboard-header">
+        <h1>Staff Management</h1>
+        <button class="btn btn-primary" @onclick="() => showCreateModal = true">+ Add Staff</button>
+    </div>
+    <div class="card">
+        <table>
+            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Last Login</th></tr></thead>
+            <tbody>
+            @foreach (var u in users)
+            {
+                <tr>
+                    <td><strong>@u.FullName</strong></td>
+                    <td>@u.Email</td>
+                    <td><span class="badge @(u.Role == "Admin" ? "badge-danger" : u.Role == "Cashier" ? "badge-warning" : "badge-info")">@u.Role</span></td>
+                    <td><span class="badge @(u.IsActive ? "badge-success" : "badge-gray")">@(u.IsActive ? "Active" : "Inactive")</span></td>
+                    <td>-</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@if (showCreateModal)
+{
+    <div class="modal-overlay" @onclick="() => showCreateModal = false">
+        <div class="modal" @onclick:stopPropagation>
+            <div class="modal-header"><h2>Add Staff Member</h2><button class="close-btn" @onclick="() => showCreateModal = false">&times;</button></div>
+            <div class="form-group"><label>Full Name</label><input @bind="newStaff.FullName" /></div>
+            <div class="form-group"><label>Email</label><input @bind="newStaff.Email" /></div>
+            <div class="form-group"><label>Password</label><input type="password" @bind="newStaff.Password" /></div>
+            <div class="form-group"><label>Role</label>
+                <select @bind="newStaff.Role">
+                    <option value="Waiter">Waiter</option>
+                    <option value="Cashier">Cashier</option>
+                    <option value="Admin">Admin</option>
+                </select>
+            </div>
+            <button class="btn btn-primary btn-block" @onclick="CreateStaff">Create</button>
+        </div>
+    </div>
+}
+
+@code {
+    private List<UserDto> users = new();
+    private bool showCreateModal;
+    private NewStaff newStaff = new();
+
+    protected override async Task OnInitializedAsync() => users = await Api.GetAsync<UserDto>("api/auth/users");
+
+    private async Task CreateStaff()
+    {
+        await Api.PostAsync<object>("api/auth/register", new
+        {
+            newStaff.Email, newStaff.Password, newStaff.FullName, newStaff.Role
+        });
+        showCreateModal = false;
+        newStaff = new();
+        users = await Api.GetAsync<UserDto>("api/auth/users");
+    }
+
+    record UserDto(int Id, string Email, string FullName, string Role, bool IsActive);
+    class NewStaff { public string FullName { get; set; } = ""; public string Email { get; set; } = ""; public string Password { get; set; } = ""; public string Role { get; set; } = "Waiter"; }
+}

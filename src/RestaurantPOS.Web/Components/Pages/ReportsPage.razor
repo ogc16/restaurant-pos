@@ -1,0 +1,65 @@
+@page "/reports"
+@rendermode InteractiveServer
+@inject ApiService Api
+
+<div class="dashboard">
+    <div class="dashboard-header">
+        <h1>Reports & Analytics</h1>
+    </div>
+    <div class="toolbar">
+        <div class="filter-group">
+            <label>From:</label>
+            <input type="date" @bind="startDate" />
+        </div>
+        <div class="filter-group">
+            <label>To:</label>
+            <input type="date" @bind="endDate" />
+        </div>
+        <button class="btn btn-primary btn-sm" @onclick="LoadReport">Load Report</button>
+        <button class="btn btn-outline btn-sm" @onclick="ExportCsv">Export CSV</button>
+    </div>
+
+    @if (report != null)
+    {
+        <div class="stats-grid">
+            <div class="stat-card"><h3>Total Orders</h3><div class="value">@report.TotalOrders</div></div>
+            <div class="stat-card success"><h3>Total Revenue</h3><div class="value">$@report.TotalRevenue.ToString("N2")</div></div>
+            <div class="stat-card warning"><h3>Total Tips</h3><div class="value">$@report.TotalTips.ToString("N2")</div></div>
+            <div class="stat-card"><h3>Items Sold</h3><div class="value">@report.ItemsSold</div></div>
+        </div>
+
+        <div class="card">
+            <div class="card-header"><h2>Top Selling Items</h2></div>
+            <table>
+                <thead><tr><th>Item</th><th>Qty Sold</th><th>Revenue</th></tr></thead>
+                <tbody>
+                @foreach (var item in report.TopSellingItems)
+                {
+                    <tr><td>@item.Name</td><td>@item.QuantitySold</td><td>$@item.Revenue.ToString("N2")</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private DateTime startDate = DateTime.Today.AddDays(-7);
+    private DateTime endDate = DateTime.Today;
+    private DailyReport? report;
+
+    protected override async Task OnInitializedAsync() => await LoadReport();
+
+    private async Task LoadReport()
+    {
+        report = await Api.GetSingleAsync<DailyReport>($"api/reports/daily?date={startDate:yyyy-MM-dd}");
+    }
+
+    private async Task ExportCsv()
+    {
+        await Api.GetAsync<List<object>>($"api/reports/export?from={startDate:yyyy-MM-dd}&to={endDate:yyyy-MM-dd}");
+    }
+
+    record DailyReport(DateTime Date, int TotalOrders, decimal TotalRevenue, decimal TotalTips, int ItemsSold, List<TopItem> TopSellingItems);
+    record TopItem(int MenuItemId, string Name, int QuantitySold, decimal Revenue);
+}

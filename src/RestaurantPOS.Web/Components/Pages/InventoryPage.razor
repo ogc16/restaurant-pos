@@ -1,0 +1,114 @@
+@page "/inventory"
+@rendermode InteractiveServer
+@inject ApiService Api
+
+<div class="dashboard">
+    <div class="dashboard-header">
+        <h1>Inventory Management</h1>
+        <button class="btn btn-primary" @onclick="() => showCreateModal = true">+ Add Item</button>
+    </div>
+    <div class="stats-grid">
+        <div class="stat-card"><h3>Total Items</h3><div class="value">@items.Count</div></div>
+        <div class="stat-card warning"><h3>Low Stock</h3><div class="value">@items.Count(i => i.IsLowStock)</div></div>
+        <div class="stat-card danger"><h3>Out of Stock</h3><div class="value">@items.Count(i => i.IsOutOfStock)</div></div>
+    </div>
+    <div class="card">
+        <table>
+            <thead><tr><th>Name</th><th>Qty</th><th>Unit</th><th>Threshold</th><th>Supplier</th><th>Cost</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+            @foreach (var item in items)
+            {
+                <tr>
+                    <td><strong>@item.Name</strong></td>
+                    <td>@item.Quantity</td>
+                    <td>@item.Unit</td>
+                    <td>@item.LowStockThreshold</td>
+                    <td>@(item.SupplierName ?? "-")</td>
+                    <td>$@item.CostPerUnit.ToString("N2")</td>
+                    <td><span class="badge @(item.IsOutOfStock ? "badge-danger" : item.IsLowStock ? "badge-warning" : "badge-success")">@(item.IsOutOfStock ? "Out" : item.IsLowStock ? "Low" : "OK")</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" @onclick="() => ShowRestock(item)">Restock</button>
+                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteInvItem(item.Id)">Delete</button>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@if (showRestockModal && restockItem != null)
+{
+    <div class="modal-overlay" @onclick="() => showRestockModal = false">
+        <div class="modal" @onclick:stopPropagation>
+            <div class="modal-header"><h2>Restock - @restockItem.Name</h2><button class="close-btn" @onclick="() => showRestockModal = false">&times;</button></div>
+            <div class="form-group"><label>Quantity to Add</label><input type="number" @bind="restockQty" min="1" /></div>
+            <div class="form-group"><label>Cost Per Unit</label><input type="number" @bind="restockCost" step="0.01" /></div>
+            <button class="btn btn-success btn-block" @onclick="DoRestock">Restock</button>
+        </div>
+    </div>
+}
+
+@if (showCreateModal)
+{
+    <div class="modal-overlay" @onclick="() => showCreateModal = false">
+        <div class="modal" @onclick:stopPropagation>
+            <div class="modal-header"><h2>Add Inventory Item</h2><button class="close-btn" @onclick="() => showCreateModal = false">&times;</button></div>
+            <div class="form-group"><label>Name</label><input @bind="newItem.Name" /></div>
+            <div class="form-group"><label>Quantity</label><input type="number" @bind="newItem.Quantity" /></div>
+            <div class="form-group"><label>Unit</label><input @bind="newItem.Unit" /></div>
+            <div class="form-group"><label>Low Stock Threshold</label><input type="number" @bind="newItem.LowStockThreshold" /></div>
+            <div class="form-group"><label>Cost Per Unit</label><input type="number" @bind="newItem.CostPerUnit" step="0.01" /></div>
+            <div class="form-group"><label>Supplier</label><input @bind="newItem.SupplierName" /></div>
+            <button class="btn btn-primary btn-block" @onclick="CreateInvItem">Create</button>
+        </div>
+    </div>
+}
+
+@code {
+    private List<InvItemDto> items = new();
+    private bool showCreateModal;
+    private bool showRestockModal;
+    private InvItemDto? restockItem;
+    private int restockQty;
+    private decimal restockCost;
+    private NewInvItem newItem = new();
+
+    protected override async Task OnInitializedAsync() => items = await Api.GetAsync<InvItemDto>("api/inventory");
+
+    private void ShowRestock(InvItemDto item)
+    {
+        restockItem = item;
+        restockQty = 10;
+        restockCost = item.CostPerUnit;
+        showRestockModal = true;
+    }
+
+    private async Task DoRestock()
+    {
+        if (restockItem == null) return;
+        await Api.PostAsync<object>("api/inventory/restock", new
+        {
+            InventoryItemId = restockItem.Id, Quantity = restockQty, CostPerUnit = restockCost, RestockedBy = "Admin"
+        });
+        showRestockModal = false;
+        items = await Api.GetAsync<InvItemDto>("api/inventory");
+    }
+
+    private async Task CreateInvItem()
+    {
+        await Api.PostAsync<object>("api/inventory", newItem);
+        showCreateModal = false;
+        newItem = new();
+        items = await Api.GetAsync<InvItemDto>("api/inventory");
+    }
+
+    private async Task DeleteInvItem(int id)
+    {
+        await Api.DeleteAsync($"api/inventory/{id}");
+        items = await Api.GetAsync<InvItemDto>("api/inventory");
+    }
+
+    record InvItemDto(int Id, string Name, string? Description, int Quantity, string Unit, int LowStockThreshold, bool IsOutOfStock, bool IsLowStock, string? SupplierName, string? SupplierContact, decimal CostPerUnit);
+    class NewInvItem { public string Name { get; set; } = ""; public int Quantity { get; set; } public string Unit { get; set; } = "pcs"; public int LowStockThreshold { get; set; } = 10; public decimal CostPerUnit { get; set; } public string? SupplierName { get; set; } }
+}
