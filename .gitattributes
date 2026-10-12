@@ -1,0 +1,27 @@
+# Line endings
+* text=auto
+
+# Source files
+*.cs text eol=lf diff=csharp
+*.razor text eol=lf
+*.csproj text eol=lf
+*.slnx text eol=lf
+*.props text eol=lf
+*.targets text eol=lf
+*.json text eol=lf
+*.sln text eol=crlf
+*.bat text eol=crlf
+
+# Docs
+*.md text eol=lf diff=markdown
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Binaries (never normalize)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.db binary
